@@ -69,9 +69,9 @@ func StartClientForApi(config config.Config, outputStream <-chan []byte, inputSt
 func StartClient(iFace *water.Interface, config config.Config) {
 	log.Println("vtun h2 client started")
 	_ctx, _cancel = context.WithCancel(context.Background())
-	outputStream := make(chan []byte, 1000)
+	outputStream := make(chan []byte, 3000)
 	go xtun.ReadFromTun(iFace, config, outputStream, _ctx, _cancel)
-	inputStream := make(chan []byte, 1000)
+	inputStream := make(chan []byte, 3000)
 	go xtun.WriteToTun(iFace, config, inputStream, _ctx, _cancel)
 	StartClientForApi(
 		config, outputStream, inputStream,

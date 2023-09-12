@@ -45,9 +45,9 @@ func StartClientForApi(config config.Config, outputStream <-chan []byte, inputSt
 func StartClient(iFace *water.Interface, config config.Config) {
 	log.Println("vtun websocket client started")
 	_ctx, _cancel = context.WithCancel(context.Background())
-	outputStream := make(chan []byte)
+	outputStream := make(chan []byte, 3000)
 	go xtun.ReadFromTun(iFace, config, outputStream, _ctx, _cancel)
-	inputStream := make(chan []byte)
+	inputStream := make(chan []byte, 3000)
 	go xtun.WriteToTun(iFace, config, inputStream, _ctx, _cancel)
 	StartClientForApi(
 		config, outputStream, inputStream,
