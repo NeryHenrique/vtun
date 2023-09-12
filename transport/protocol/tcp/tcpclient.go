@@ -24,7 +24,7 @@ const ConnTag = "conn"
 const HandshakeTag = "handshake"
 
 var _ctx context.Context
-var cancel context.CancelFunc
+var _cancel context.CancelFunc
 
 func StartClientForApi(config config.Config, outputStream <-chan []byte, inputStream chan<- []byte, writeCallback, readCallback func(int), _ctx context.Context) {
 	go Tun2Conn(config, outputStream, _ctx, readCallback)
@@ -59,11 +59,11 @@ func StartClientForApi(config config.Config, outputStream <-chan []byte, inputSt
 // StartClient starts the tcp client
 func StartClient(iFace *water.Interface, config config.Config) {
 	log.Println("vtun tcp client started")
-	_ctx, cancel = context.WithCancel(context.Background())
+	_ctx, _cancel = context.WithCancel(context.Background())
 	outputStream := make(chan []byte)
-	go xtun.ReadFromTun(iFace, config, outputStream, _ctx)
+	go xtun.ReadFromTun(iFace, config, outputStream, _ctx, _cancel)
 	inputStream := make(chan []byte)
-	go xtun.WriteToTun(iFace, config, inputStream, _ctx)
+	go xtun.WriteToTun(iFace, config, inputStream, _ctx, _cancel)
 	StartClientForApi(
 		config, outputStream, inputStream,
 		func(n int) { counter.IncrWrittenBytes(n) },
@@ -197,5 +197,5 @@ func Conn2Tun(config config.Config, conn net.Conn, inputStream chan<- []byte, _c
 }
 
 func Close() {
-	cancel()
+	_cancel()
 }

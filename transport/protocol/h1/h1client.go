@@ -15,7 +15,7 @@ import (
 )
 
 var _ctx context.Context
-var cancel context.CancelFunc
+var _cancel context.CancelFunc
 
 func StartClientForApi(config config.Config, outputStream <-chan []byte, inputStream chan<- []byte, writeCallback, readCallback func(int), _ctx context.Context) {
 	var cl *Client
@@ -55,11 +55,11 @@ func StartClientForApi(config config.Config, outputStream <-chan []byte, inputSt
 // StartClient starts the h1 client
 func StartClient(iFace *water.Interface, config config.Config) {
 	log.Println("vtun h1 client started")
-	_ctx, cancel = context.WithCancel(context.Background())
+	_ctx, _cancel = context.WithCancel(context.Background())
 	outputStream := make(chan []byte)
-	go xtun.ReadFromTun(iFace, config, outputStream, _ctx)
+	go xtun.ReadFromTun(iFace, config, outputStream, _ctx, _cancel)
 	inputStream := make(chan []byte)
-	go xtun.WriteToTun(iFace, config, inputStream, _ctx)
+	go xtun.WriteToTun(iFace, config, inputStream, _ctx, _cancel)
 	StartClientForApi(
 		config, outputStream, inputStream,
 		func(n int) { counter.IncrWrittenBytes(n) },
@@ -69,5 +69,5 @@ func StartClient(iFace *water.Interface, config config.Config) {
 }
 
 func Close() {
-	cancel()
+	_cancel()
 }

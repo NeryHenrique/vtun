@@ -25,7 +25,7 @@ import (
 const ConnTag = "stream"
 
 var _ctx context.Context
-var cancel context.CancelFunc
+var _cancel context.CancelFunc
 
 func StartClientForApi(config config.Config, outputStream <-chan []byte, inputStream chan<- []byte, writeCallback, readCallback func(int), _ctx context.Context) {
 	key := pbkdf2.Key([]byte(config.Key), []byte(SALT), 4096, 32, sha1.New)
@@ -66,11 +66,11 @@ func StartClientForApi(config config.Config, outputStream <-chan []byte, inputSt
 
 func StartClient(iFace *water.Interface, config config.Config) {
 	log.Println("vtun kcp client started")
-	_ctx, cancel = context.WithCancel(context.Background())
+	_ctx, _cancel = context.WithCancel(context.Background())
 	outputStream := make(chan []byte)
-	go xtun.ReadFromTun(iFace, config, outputStream, _ctx)
+	go xtun.ReadFromTun(iFace, config, outputStream, _ctx, _cancel)
 	inputStream := make(chan []byte)
-	go xtun.WriteToTun(iFace, config, inputStream, _ctx)
+	go xtun.WriteToTun(iFace, config, inputStream, _ctx, _cancel)
 	StartClientForApi(
 		config, outputStream, inputStream,
 		func(n int) { counter.IncrWrittenBytes(n) },
@@ -170,5 +170,5 @@ func CheckKCPSessionAlive(session *kcp.UDPSession, config config.Config) {
 }
 
 func Close() {
-	cancel()
+	_cancel()
 }
