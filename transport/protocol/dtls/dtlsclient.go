@@ -21,7 +21,7 @@ import (
 const ConnTag = "conn"
 
 var _ctx context.Context
-var cancel context.CancelFunc
+var _cancel context.CancelFunc
 
 func StartClientForApi(config config.Config, outputStream <-chan []byte, inputStream chan<- []byte, writeCallback, readCallback func(int), _ctx context.Context) {
 	var tlsConfig *dtls.Config
@@ -69,11 +69,11 @@ func StartClientForApi(config config.Config, outputStream <-chan []byte, inputSt
 // StartClient starts the dtls client
 func StartClient(iFace *water.Interface, config config.Config) {
 	log.Println("vtun dtls client started")
-	_ctx, cancel = context.WithCancel(context.Background())
-	outputStream := make(chan []byte)
-	go xtun.ReadFromTun(iFace, config, outputStream, _ctx)
-	inputStream := make(chan []byte)
-	go xtun.WriteToTun(iFace, config, inputStream, _ctx)
+	_ctx, _cancel = context.WithCancel(context.Background())
+	outputStream := make(chan []byte, 3000)
+	go xtun.ReadFromTun(iFace, config, outputStream, _ctx, _cancel)
+	inputStream := make(chan []byte, 3000)
+	go xtun.WriteToTun(iFace, config, inputStream, _ctx, _cancel)
 	StartClientForApi(
 		config, outputStream, inputStream,
 		func(n int) { counter.IncrWrittenBytes(n) },
@@ -134,5 +134,5 @@ func conn2Tun(config config.Config, conn *dtls.Conn, inputStream chan<- []byte, 
 }
 
 func Close() {
-	cancel()
+	_cancel()
 }

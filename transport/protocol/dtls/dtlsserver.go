@@ -20,8 +20,8 @@ import (
 // StartServer starts the dtls server
 func StartServer(iFace *water.Interface, config config.Config) {
 	log.Printf("vtun dtls server started on %v", config.LocalAddr)
-	_ctx, cancel = context.WithCancel(context.Background())
-	defer cancel()
+	_ctx, _cancel = context.WithCancel(context.Background())
+	defer _cancel()
 	var tlsConfig *dtls.Config
 	if config.PSKMode {
 		tlsConfig = &dtls.Config{
