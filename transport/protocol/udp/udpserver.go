@@ -121,7 +121,20 @@ func (s *Server) udpToTun() {
 					continue
 				}
 				counter.IncrWrittenBytes(n)
+				continue
 			}
+
+
+			// if reaches here the package is coming from them client but with other machine as destiny
+			// send to tun interface, if iptables configured it can masquarede and forward to the correct destiny
+			if key := netutil.GetSrcKey(b); key != "" {
+				s.iFace.Write(b)
+				s.connCache.Set(key, cliAddr, 24*time.Hour)
+				counter.IncrReadBytes(n)
+				continue
+			}
+
+			log.Printf("pkg ignored %s %s %s",cliAddr, cidrIP, dstKey)
 		}
 	}
 }
