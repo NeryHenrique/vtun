@@ -27,6 +27,7 @@ type App struct {
 	Config  *config.Config
 	Version string
 	Iface   *water.Interface
+	IfaceRelay   *water.Interface
 }
 
 func NewApp(config *config.Config) *App {
@@ -44,7 +45,11 @@ func (app *App) InitConfig() {
 	}
 	app.Config.BufferSize = 64 * 1024
 	cipher.SetKey(app.Config.Key)
-	app.Iface = tun.CreateTun(*app.Config)
+	app.Iface = tun.CreateTun(*app.Config, false)
+
+	if app.Config.ClientRelayMode {
+		app.IfaceRelay = tun.CreateTun(*app.Config, true)
+	}
 	log.Printf("initialized config: %+v", app.Config)
 	netutil.PrintStats(app.Config.Verbose, app.Config.ServerMode)
 }
@@ -56,7 +61,12 @@ func (app *App) StartApp() {
 		if app.Config.ServerMode {
 			udp.StartServer(app.Iface, *app.Config)
 		} else {
-			udp.StartClient(app.Iface, *app.Config)
+			if app.Config.ClientRelayMode {
+				udp.StartClientRelay(app.Iface, *app.Config)
+			} else {
+				udp.StartClient(app.Iface, *app.Config)
+			}
+			
 		}
 	case "ws", "wss":
 		if app.Config.ServerMode {

@@ -1,0 +1,10 @@
+[Unit]
+Description=Vtun Server Service
+
+[Service]
+ExecStart=/etc/vtun/vtun-linux-amd64 -f /etc/vtun/config.json
+Restart=always
+User=%USER%
+
+[Install]
+WantedBy=multi-user.target

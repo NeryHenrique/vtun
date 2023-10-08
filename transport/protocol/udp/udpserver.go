@@ -89,6 +89,8 @@ func (s *Server) udpToTun() {
 			b = cipher.XOR(b)
 		}
 
+		
+
 		cidrIP, _, err := net.ParseCIDR(s.config.CIDR)
 		if err != nil {
 			netutil.PrintErr(err, s.config.Verbose)
