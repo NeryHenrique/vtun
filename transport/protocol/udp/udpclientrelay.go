@@ -20,10 +20,8 @@ var srcKeyList []string
 
 
 
-
-
 func stringInSlice(a string, list []string) (bool,int) {
-	log.Printf("show list %v\n",list)
+	//log.Printf("show list %v\n",list)
     for i, b := range list {
         if b == a {
             return true, i
@@ -47,9 +45,7 @@ type RelayClient struct {
 	iFace  *water.Interface
 	relayConn *net.UDPConn //todo: how to kill lost connections
 	connCache *cache.Cache
-
 }
-
 
 
 
@@ -121,7 +117,6 @@ func (c *RelayClient) createNewConnection(){
 	}
 	
 	log.Printf("created socket with vtun server conn_id %d\n",conn_id)
-	log.Printf("conn list -->> %v\n",connList)
 	
 }
 
@@ -167,8 +162,6 @@ func (c *RelayClient) udpToRelay(conn_id int) {
 		b := packet[:n]
 		b_ori := b
 
-
-
 		if c.config.Compress {
 			b, err = snappy.Decode(nil, b)
 			if err != nil {
@@ -187,13 +180,13 @@ func (c *RelayClient) udpToRelay(conn_id int) {
 				if err != nil {
 					c.connCache.Delete(key)
 					continue
+				} else {
+					counter.IncrReadBytesRelay(n)
 				}
-				//counter.IncrWrittenBytes(n)
 			}
 		}
 
-
-		log.Printf("send pkg back udpRelay")
+		//log.Printf("send pkg back udpRelay")
 	}
 }
 
@@ -235,8 +228,7 @@ func (c *RelayClient) keepAlive() {
 	}
 
 	// dst ip(pingIpPacket[12:16]): 0.0.0.0, src ip(pingIpPacket[16:20]): 0.0.0.0
-	pingIpPacket := []byte{0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x40, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00}
+	pingIpPacket := []byte{0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x40, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 	copy(pingIpPacket[12:16], srcIp[12:16]) // modify ping packet src ip to client CIDR ip
 
 	if c.config.Obfs {
@@ -254,6 +246,7 @@ func (c *RelayClient) keepAlive() {
 			netutil.PrintErr(err, c.config.Verbose)
 			continue
 		}
+		counter.IncrWrittenBytes(16)
 	}
 }
 
@@ -273,8 +266,6 @@ func (c *RelayClient) udpRelayToUdp() {
 		b := packet[:n]
 		b_ori := b
 
-
-
 		if c.config.Compress {
 			b, err = snappy.Decode(nil, b)
 			if err != nil {
@@ -288,12 +279,9 @@ func (c *RelayClient) udpRelayToUdp() {
 
 
 		//HERE WE NEED TO CHANGE THE SRC IP BECAUSE WHEN REACH THE SERVER THE RESPONSE OF THE REQUEST IT DOEST KNOW KNWO TO REPLY
-
-
 		if srcKey := netutil.GetSrcKey(b); srcKey != "" {
 
 			c.connCache.Set(srcKey, cliAddr, 24*time.Hour)
-
 
 			ret, index := stringInSlice(srcKey,srcKeyList)
 			if ( !ret ){
@@ -301,29 +289,19 @@ func (c *RelayClient) udpRelayToUdp() {
 				c.createNewConnection()
 				srcKeyList = append(srcKeyList, srcKey)
 			}
-	
-			if dstKey := netutil.GetDstKey(b); dstKey != "" {
-				log.Printf("relay pkg to server dst %s conn %d",dstKey, index)
-			}
-	
-	
+
 			_, err = connList[index].Write(b_ori)
 			if err != nil {
 				netutil.PrintErr(err, c.config.Verbose)
 				continue
 			}
 
-
-
-			c.relayConn.Write(b)
-
+			
+			counter.IncrWrittenBytesRelay(n)
+			//log.Printf("send pkg to udpRelay")
 			continue
 		}
 
-
 		log.Println("pkg ignored")
-
-
-		
 	}
 }
