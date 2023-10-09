@@ -12,18 +12,13 @@ import (
 )
 
 // CreateTun creates a tun interface
-func CreateTun(config config.Config, relaytun bool) (iFace *water.Interface) {
+func CreateTun(config config.Config) (iFace *water.Interface) {
 	c := water.Config{DeviceType: water.TUN}
 	c.PlatformSpecificParams = water.PlatformSpecificParams{}
 	os := runtime.GOOS
 	if os == "windows" {
 		c.PlatformSpecificParams.Name = "vtun"
-		if (relaytun==false){
-			c.PlatformSpecificParams.Network = []string{config.CIDR, config.CIDRv6}
-		} else {
-			c.PlatformSpecificParams.Network = []string{config.RELAYCIDR, config.RELAYCIDRv6}
-		}
-		
+		c.PlatformSpecificParams.Network = []string{config.CIDR, config.CIDRv6}
 	}
 	if config.DeviceName != "" {
 		c.PlatformSpecificParams.Name = config.DeviceName
@@ -33,37 +28,27 @@ func CreateTun(config config.Config, relaytun bool) (iFace *water.Interface) {
 		log.Fatalln("failed to create tun interface:", err)
 	}
 	log.Printf("interface created %v", iFace.Name())
-	setRoute(config, iFace, relaytun)
+	setRoute(config, iFace)
 	return iFace
 }
 
 // setRoute sets the system routes
-func setRoute(config config.Config, iFace *water.Interface, relaytun bool) {
-
-	var CIDR   = config.CIDR
-	var CIDRv6 = config.CIDRv6
-	if (relaytun==true) {
-		CIDR = config.RELAYCIDR
-		CIDRv6 = config.RELAYCIDRv6
-	}
-
-	ip, _, err := net.ParseCIDR(CIDR)
+func setRoute(config config.Config, iFace *water.Interface) {
+	ip, _, err := net.ParseCIDR(config.CIDR)
 	if err != nil {
-		log.Panicf("error cidr %v", CIDR)
+		log.Panicf("error cidr %v", config.CIDR)
 	}
-	ipv6, _, err := net.ParseCIDR(CIDRv6)
+	ipv6, _, err := net.ParseCIDR(config.CIDRv6)
 	if err != nil {
-		log.Panicf("error ipv6 cidr %v", CIDRv6)
+		log.Panicf("error ipv6 cidr %v", config.CIDRv6)
 	}
-
-
 
 	execr := netutil.ExecCmdRecorder{}
 	os := runtime.GOOS
 	if os == "linux" {
 		execr.ExecCmd("/sbin/ip", "link", "set", "dev", iFace.Name(), "mtu", strconv.Itoa(config.MTU))
-		execr.ExecCmd("/sbin/ip", "addr", "add", CIDR, "dev", iFace.Name())
-		execr.ExecCmd("/sbin/ip", "-6", "addr", "add", CIDRv6, "dev", iFace.Name())
+		execr.ExecCmd("/sbin/ip", "addr", "add", config.CIDR, "dev", iFace.Name())
+		execr.ExecCmd("/sbin/ip", "-6", "addr", "add", config.CIDRv6, "dev", iFace.Name())
 		execr.ExecCmd("/sbin/ip", "link", "set", "dev", iFace.Name(), "up")
 		if !config.ServerMode && config.GlobalMode {
 			physicaliFace := netutil.GetInterface()

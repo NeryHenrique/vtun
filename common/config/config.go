@@ -14,8 +14,6 @@ type Config struct {
 	ServerIPv6                string `json:"server_ipv6"`
 	CIDR                      string `json:"cidr"`
 	CIDRv6                    string `json:"cidr_ipv6"`
-	RELAYCIDR                 string `json:"relay_cidr"`
-	RELAYCIDRv6               string `json:"relay_cidr_ipv6"`
 	Key                       string `json:"key"`
 	Protocol                  string `json:"protocol"`
 	Path                      string `json:"path"`
@@ -50,8 +48,6 @@ var DefaultConfig = nativeConfig{
 	ServerIPv6:                "fced:9999::1",
 	CIDR:                      "172.16.0.10/24",
 	CIDRv6:                    "fced:9999::9999/64",
-	RELAYCIDR:                 "173.16.0.10/24",
-	RELAYCIDRv6:               "fcef:9999::9999/64",
 	Key:                       "freedom@2023",
 	Protocol:                  "udp",
 	Path:                      "/freedom",

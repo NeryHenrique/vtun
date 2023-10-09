@@ -20,8 +20,6 @@ func init() {
 	flag.StringVar(&cfg.DeviceName, "dn", config.DefaultConfig.DeviceName, "device name")
 	flag.StringVar(&cfg.CIDR, "c", config.DefaultConfig.CIDR, "tun interface cidr")
 	flag.StringVar(&cfg.CIDRv6, "c6", config.DefaultConfig.CIDRv6, "tun interface ipv6 cidr")
-	flag.StringVar(&cfg.RELAYCIDR, "rc", config.DefaultConfig.RELAYCIDR, "tun interface relay cidr")
-	flag.StringVar(&cfg.RELAYCIDRv6, "rc6", config.DefaultConfig.RELAYCIDRv6, "tun interface ipv6 relay cidr")
 	flag.IntVar(&cfg.MTU, "mtu", config.DefaultConfig.MTU, "tun mtu")
 	flag.StringVar(&cfg.LocalAddr, "l", config.DefaultConfig.LocalAddr, "local address")
 	flag.StringVar(&cfg.ServerAddr, "s", config.DefaultConfig.ServerAddr, "server address")

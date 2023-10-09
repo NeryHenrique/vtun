@@ -27,7 +27,6 @@ type App struct {
 	Config  *config.Config
 	Version string
 	Iface   *water.Interface
-	IfaceRelay   *water.Interface
 }
 
 func NewApp(config *config.Config) *App {
@@ -45,11 +44,8 @@ func (app *App) InitConfig() {
 	}
 	app.Config.BufferSize = 64 * 1024
 	cipher.SetKey(app.Config.Key)
-	app.Iface = tun.CreateTun(*app.Config, false)
+	app.Iface = tun.CreateTun(*app.Config)
 
-	if app.Config.ClientRelayMode {
-		app.IfaceRelay = tun.CreateTun(*app.Config, true)
-	}
 	log.Printf("initialized config: %+v", app.Config)
 	netutil.PrintStats(app.Config.Verbose, app.Config.ServerMode)
 }
