@@ -4,11 +4,12 @@ import (
 	"log"
 	"net"
 	"runtime"
-	"strconv"
+	//"strconv"
 
 	"github.com/net-byte/vtun/common/config"
 	"github.com/net-byte/vtun/common/netutil"
 	"github.com/net-byte/water"
+	"github.com/vishvananda/netlink"
 )
 
 // CreateTun creates a tun interface
@@ -26,6 +27,8 @@ func CreateTun(config config.Config) (iFace *water.Interface) {
 	iFace, err := water.New(c)
 	if err != nil {
 		log.Fatalln("failed to create tun interface:", err)
+		log.Fatalln("Please run with sudo or run: sudo setcap cap_net_admin=+iep <path>/vtun-linux-amd64 ", err)
+
 	}
 	log.Printf("interface created %v", iFace.Name())
 	setRoute(config, iFace)
@@ -46,29 +49,115 @@ func setRoute(config config.Config, iFace *water.Interface) {
 	execr := netutil.ExecCmdRecorder{}
 	os := runtime.GOOS
 	if os == "linux" {
-		execr.ExecCmd("/sbin/ip", "link", "set", "dev", iFace.Name(), "mtu", strconv.Itoa(config.MTU))
-		execr.ExecCmd("/sbin/ip", "addr", "add", config.CIDR, "dev", iFace.Name())
-		execr.ExecCmd("/sbin/ip", "-6", "addr", "add", config.CIDRv6, "dev", iFace.Name())
-		execr.ExecCmd("/sbin/ip", "link", "set", "dev", iFace.Name(), "up")
+
+		netLink, err := netlink.LinkByName(iFace.Name())
+		if err != nil {
+			log.Printf("failed to get standard interface by name: %v", err)
+			return
+		}
+
+		// Set MTU
+		err = netlink.LinkSetMTU(netLink, config.MTU); 
+		if err != nil {
+			log.Printf("failed to set MTU: %v", err)
+			return
+		}
+
+		// Add IPv4 address
+		addr, err := netlink.ParseAddr(config.CIDR)
+		if err != nil {
+			log.Printf("failed to parse ip : %v", err)
+			return
+		}
+		err = netlink.AddrAdd(netLink, addr)
+		if err != nil {
+			log.Printf("failed to set ip of tun interface: %v", err)
+			return
+		}
+
+		// Add IPv6 address
+		addrv6, err := netlink.ParseAddr(config.CIDRv6)
+		if err != nil {
+			log.Printf("failed to parse ipv6 : %v", err)
+		}
+		if err := netlink.AddrAdd(netLink, addrv6); err != nil {
+			log.Printf("failed to set ipv6 of tun interface: %v", err)
+		}
+
+		// Bring the interface up
+		err = netlink.LinkSetUp(netLink);
+		if err != nil {
+			log.Printf("failed to up tun interface: %v", err)
+			return
+		}
+
 		if !config.ServerMode && config.GlobalMode {
 			physicaliFace := netutil.GetInterface()
+
+			physicalnetLink, err := netlink.LinkByName(physicaliFace)
+			if err != nil {
+				log.Printf("failed get interface: %v", err)
+				return
+			}
+
 			serverAddrIP := netutil.LookupServerAddrIP(config.ServerAddr)
 			if physicaliFace != "" && serverAddrIP != nil {
 				if config.LocalGateway != "" {
-					execr.ExecCmd("/sbin/ip", "route", "add", "0.0.0.0/1", "dev", iFace.Name())
-					execr.ExecCmd("/sbin/ip", "route", "add", "128.0.0.0/1", "dev", iFace.Name())
-					if serverAddrIP.To4() != nil {
-						execr.ExecCmd("/sbin/ip", "route", "add", serverAddrIP.To4().String()+"/32", "via", config.LocalGateway, "dev", physicaliFace)
+
+					_, dst1, _ := net.ParseCIDR("0.0.0.0/1")
+					_, dst2, _ := net.ParseCIDR("128.0.0.0/1")
+					route1 := &netlink.Route{LinkIndex: netLink.Attrs().Index, Dst: dst1}
+					route2 := &netlink.Route{LinkIndex: netLink.Attrs().Index, Dst: dst2}
+					netlink.RouteAdd(route1)
+					netlink.RouteAdd(route2)
+
+					v4 := serverAddrIP.To4()
+					
+					
+					if v4 != nil {
+						serverAddrCIDR := &net.IPNet{IP: v4, Mask: net.CIDRMask(32, 32)}
+						gw := net.ParseIP(config.LocalGateway)
+						route := &netlink.Route{LinkIndex: physicalnetLink.Attrs().Index, Dst: serverAddrCIDR, Gw: gw}
+						netlink.RouteAdd(route)
 					}
+					
+
 				}
+
 				if config.LocalGatewayv6 != "" {
-					execr.ExecCmd("/sbin/ip", "-6", "route", "add", "::/1", "dev", iFace.Name())
-					if serverAddrIP.To16() != nil {
-						execr.ExecCmd("/sbin/ip", "-6", "route", "add", serverAddrIP.To16().String()+"/128", "via", config.LocalGatewayv6, "dev", physicaliFace)
+					// Add default IPv6 route
+					defaultRoute := &netlink.Route{
+						Dst:       &net.IPNet{IP: net.IPv6zero, Mask: net.CIDRMask(0, 128)}, // Represents ::/0 in IPv6
+						LinkIndex: netLink.Attrs().Index,
+					}
+					err := netlink.RouteAdd(defaultRoute)
+					if err != nil {
+						log.Printf("failed to add default IPv6 route: %w", err)
+						return 
+					}
+				
+					// Check if serverAddrIP is IPv6 and add specific route for it
+					if serverAddrIP.To16() != nil && serverAddrIP.To4() == nil {
+						route := &netlink.Route{
+							Dst:       &net.IPNet{IP: serverAddrIP, Mask: net.CIDRMask(128, 128)}, // 128-bit mask for a single IPv6 address
+							Gw:        net.ParseIP(config.LocalGatewayv6),
+							LinkIndex: physicalnetLink.Attrs().Index,
+						}
+						err = netlink.RouteAdd(route)
+						if err != nil {
+							log.Printf("failed to add IPv6 route for server: %w", err)
+							return 
+						}
 					}
 				}
 			}
 		}
+
+
+
+
+
+		
 	} else if os == "darwin" {
 		execr.ExecCmd("ifconfig", iFace.Name(), "inet", ip.String(), config.ServerIP, "up")
 		execr.ExecCmd("ifconfig", iFace.Name(), "inet6", ipv6.String(), config.ServerIPv6, "up")
@@ -120,9 +209,9 @@ func setRoute(config config.Config, iFace *water.Interface) {
 	}
 	log.Printf("interface configured %v", iFace.Name())
 
-	if config.Verbose {
-		log.Printf("set route commands:\n%s", execr.String())
-	}
+	//if config.Verbose {
+	//	log.Printf("set route commands:\n%s", execr.String())
+	//}
 }
 
 // ResetRoute resets the system routes
@@ -134,6 +223,9 @@ func ResetRoute(config config.Config) {
 	os := runtime.GOOS
 	execr := netutil.ExecCmdRecorder{}
 
+	if os == "linux" {
+		return
+	}
 	if os == "darwin" {
 		if config.LocalGateway != "" {
 			execr.ExecCmd("route", "add", "default", config.LocalGateway)

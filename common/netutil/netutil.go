@@ -196,11 +196,11 @@ func (ec *ExecCmdRecorder) String() string {
 
 // ExecCmd executes the given command
 func ExecCmd(c string, args ...string) string {
-	//log.Printf("exec %v %v", c, args)
+	log.Printf("executing -> %v %v", c, args)
 	cmd := exec.Command(c, args...)
 	out, err := cmd.Output()
 	if err != nil {
-		log.Println("failed to exec cmd:", err)
+		log.Printf("failed to exec cmd (%s %s): %v",c, args, err)
 	}
 	if len(out) == 0 {
 		return ""
