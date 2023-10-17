@@ -30,6 +30,8 @@ func init() {
 	flag.StringVar(&cfg.Path, "path", config.DefaultConfig.Path, "path")
 	flag.BoolVar(&cfg.ServerMode, "S", config.DefaultConfig.ServerMode, "server mode")
 	flag.BoolVar(&cfg.ClientRelayMode, "R", config.DefaultConfig.ClientRelayMode, "client relay mode")
+	flag.StringVar(&cfg.TunneledRoutes, "tunneled_routes", config.DefaultConfig.TunneledRoutes, "routes tunneled via tun interface (0.0.0.0/0 format)")
+	flag.StringVar(&cfg.NonTunneledRoutes, "non_tunneled_routes", config.DefaultConfig.NonTunneledRoutes, "routes keep at default interface (0.0.0.0/0 format)")
 	flag.BoolVar(&cfg.GlobalMode, "g", config.DefaultConfig.GlobalMode, "client global mode")
 	flag.BoolVar(&cfg.Obfs, "obfs", config.DefaultConfig.Obfs, "enable data obfuscation")
 	flag.BoolVar(&cfg.Compress, "compress", config.DefaultConfig.Compress, "enable data compression")
@@ -41,6 +43,7 @@ func init() {
 	flag.BoolVar(&cfg.Verbose, "v", config.DefaultConfig.Verbose, "enable verbose output")
 	flag.BoolVar(&cfg.PSKMode, "psk", config.DefaultConfig.PSKMode, "enable psk mode (dtls only)")
 	flag.StringVar(&cfg.Host, "host", config.DefaultConfig.Host, "http host")
+
 	flag.Parse()
 }
 

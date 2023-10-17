@@ -20,6 +20,8 @@ type Config struct {
 	ServerMode                bool   `json:"server_mode"`
 	GlobalMode                bool   `json:"global_mode"`
 	ClientRelayMode           bool   `json:"client_relay_mode"`
+	TunneledRoutes            string `json:"tunneled_routes"`
+	NonTunneledRoutes         string `json:"non_tunneled_routes"`	
 	Obfs                      bool   `json:"obfs"`
 	Compress                  bool   `json:"compress"`
 	MTU                       int    `json:"mtu"`
@@ -35,8 +37,8 @@ type Config struct {
 	PSKMode                   bool   `json:"psk_mode"`
 	Host                      string `json:"host"`
 
-	
 }
+
 
 type nativeConfig Config
 
@@ -54,6 +56,8 @@ var DefaultConfig = nativeConfig{
 	ServerMode:                false,
 	GlobalMode:                false,
 	ClientRelayMode:           false,
+	TunneledRoutes:            "",
+	NonTunneledRoutes:         "",
 	Obfs:                      false,
 	Compress:                  false,
 	MTU:                       1500,
@@ -65,6 +69,7 @@ var DefaultConfig = nativeConfig{
 	Verbose:                   false,
 	PSKMode:                   false,
 	Host:                      "",
+
 }
 
 func (c *Config) UnmarshalJSON(data []byte) error {

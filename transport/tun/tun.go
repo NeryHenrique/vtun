@@ -4,13 +4,15 @@ import (
 	"log"
 	"net"
 	"runtime"
-	//"strconv"
+	"strings"
 
 	"github.com/net-byte/vtun/common/config"
 	"github.com/net-byte/vtun/common/netutil"
 	"github.com/net-byte/water"
 	"github.com/vishvananda/netlink"
 )
+
+var nonTunneledRoutes_slice = []*netlink.Route{}
 
 // CreateTun creates a tun interface
 func CreateTun(config config.Config) (iFace *water.Interface) {
@@ -91,6 +93,67 @@ func setRoute(config config.Config, iFace *water.Interface) {
 			return
 		}
 
+
+		if !config.ServerMode && ( len(config.TunneledRoutes)>0 || len(config.NonTunneledRoutes)>0 ) {
+			physicaliFace := netutil.GetInterface()
+
+			physicalnetLink, err := netlink.LinkByName(physicaliFace)
+			if err != nil {
+				log.Printf("failed get interface: %v", err)
+				return
+			}
+			serverAddrIP := netutil.LookupServerAddrIP(config.ServerAddr)
+			v4 := serverAddrIP.To4()
+
+			if physicaliFace != "" && serverAddrIP != nil && v4 != nil{
+				if config.LocalGateway != "" {
+
+					tunelled_cidr := strings.Split(config.TunneledRoutes, ",")
+					log.Printf("TUNELED ROUTES: %v", tunelled_cidr)
+
+					for _, cidr := range tunelled_cidr {
+
+						_, dst, _ := net.ParseCIDR(cidr)
+						route := &netlink.Route{LinkIndex: netLink.Attrs().Index, Dst: dst}
+						log.Printf("ading route tunneled: %v", route)
+
+						err := netlink.RouteAdd(route)
+						if err != nil {
+							log.Printf("errot to add route %v | ERROR: %v", route,err)
+						}
+
+					}
+
+					non_tunelled_cidr := strings.Split(config.NonTunneledRoutes, ",")
+					log.Printf("NON TUNELED ROUTES: %v", non_tunelled_cidr)
+
+					for _, cidr := range non_tunelled_cidr {
+						//serverAddrCIDR := &net.IPNet{IP: v4, Mask: net.CIDRMask(32, 32)}
+
+						_, dst, _ := net.ParseCIDR(cidr)
+
+						gw := net.ParseIP(config.LocalGateway)
+						route := &netlink.Route{LinkIndex: physicalnetLink.Attrs().Index, Dst: dst, Gw: gw}
+						log.Printf("ading route non tunneled: %v", route)
+
+						nonTunneledRoutes_slice = append(nonTunneledRoutes_slice, route)
+						err := netlink.RouteAdd(route)
+						if err != nil {
+							log.Printf("error to add route %v | ERROR: %v", route,err)
+						}
+
+					}
+		
+				}
+
+			}
+			//TODO: ADD IPV6 TUNNELED AND NON TUNNELED ROUTES
+
+		}
+
+
+
+		
 		if !config.ServerMode && config.GlobalMode {
 			physicaliFace := netutil.GetInterface()
 
@@ -101,8 +164,10 @@ func setRoute(config config.Config, iFace *water.Interface) {
 			}
 
 			serverAddrIP := netutil.LookupServerAddrIP(config.ServerAddr)
+			
 			if physicaliFace != "" && serverAddrIP != nil {
 				if config.LocalGateway != "" {
+					
 
 					_, dst1, _ := net.ParseCIDR("0.0.0.0/1")
 					_, dst2, _ := net.ParseCIDR("128.0.0.0/1")
@@ -112,16 +177,12 @@ func setRoute(config config.Config, iFace *water.Interface) {
 					netlink.RouteAdd(route2)
 
 					v4 := serverAddrIP.To4()
-					
-					
 					if v4 != nil {
 						serverAddrCIDR := &net.IPNet{IP: v4, Mask: net.CIDRMask(32, 32)}
 						gw := net.ParseIP(config.LocalGateway)
 						route := &netlink.Route{LinkIndex: physicalnetLink.Attrs().Index, Dst: serverAddrCIDR, Gw: gw}
 						netlink.RouteAdd(route)
 					}
-					
-
 				}
 
 				if config.LocalGatewayv6 != "" {
@@ -216,7 +277,9 @@ func setRoute(config config.Config, iFace *water.Interface) {
 
 // ResetRoute resets the system routes
 func ResetRoute(config config.Config) {
-	if config.ServerMode || !config.GlobalMode {
+
+
+	if (config.ServerMode || !config.GlobalMode) && ( len(config.TunneledRoutes)==0 && len(config.NonTunneledRoutes)==0 ) {
 		return
 	}
 
@@ -224,6 +287,14 @@ func ResetRoute(config config.Config) {
 	execr := netutil.ExecCmdRecorder{}
 
 	if os == "linux" {
+		if (len(config.NonTunneledRoutes)>0){
+			log.Printf("RESETING NON TUNNELED ROUTES...")
+			//TODO: REMOVE IPV6 NON TUNNELED ROUTES
+			for _, r := range nonTunneledRoutes_slice {
+				netlink.RouteDel(r)
+			}
+		}
+
 		return
 	}
 	if os == "darwin" {
